@@ -55,7 +55,6 @@ class Author < ActiveRecord::Base
   has_many :contributions, dependent: :destroy, after_add: :contributions_changed_callback, after_remove: :contributions_changed_callback do
     def build_or_update(publication, contribution_hash = {})
       c = where(publication_id: publication.id).first_or_initialize
-
       c.assign_attributes contribution_hash.merge(publication_id: publication.id)
       if c.persisted?
         c.save
@@ -63,7 +62,6 @@ class Author < ActiveRecord::Base
       else
         self << c
       end
-
       c
     end
   end
@@ -121,32 +119,33 @@ class Author < ActiveRecord::Base
     end
   end
 
+  # @param [Hash<String => [String, Hash]>] auth_hash
+  # @return [Hash<Symbol => String>]
   def self.build_attribute_hash_from_cap_profile(auth_hash)
-    # key/value not present in hash if value is not there
-    # sunetid/ university id/ ca licence ---- at least one will be there
+    # sunetid/ university id/ ca licence ---- at least one is expected
     seed_hash = {
       cap_profile_id: auth_hash['profileId'],
       active_in_cap:  auth_hash['active'],
       cap_import_enabled: auth_hash['importEnabled']
     }
-    profile = auth_hash['profile']
-    seed_hash[:sunetid] = profile['uid'] || ''
-    seed_hash[:university_id] = profile['universityId'] || ''
-    seed_hash[:california_physician_license] = profile['californiaPhysicianLicense'] || ''
-    seed_hash[:email] = profile['email'] || ''
-    seed_hash[:emails_for_harvest] = seed_hash[:email] # TODO: duplicate of :email
-    legal_name = profile['names']['legal']
-    pref_name = profile['names']['preferred']
-    seed_hash[:official_first_name] = legal_name['firstName'] || ''
-    seed_hash[:official_middle_name] = legal_name['middleName'] || ''
-    seed_hash[:official_last_name] = legal_name['lastName'] || ''
-    seed_hash[:cap_first_name] = pref_name['firstName'] || ''
-    seed_hash[:cap_middle_name] = pref_name['middleName'] || ''
-    seed_hash[:cap_last_name] = pref_name['lastName'] || ''
-    # TODO: preferred names are duplicates of :cap names
-    seed_hash[:preferred_first_name] = seed_hash[:cap_first_name]
+    profile    = Hash.new('').merge(auth_hash['profile'])
+    legal_name = Hash.new('').merge(profile['names']['legal'])
+    pref_name  = Hash.new('').merge(profile['names']['preferred'])
+    seed_hash[:sunetid] = profile['uid']
+    seed_hash[:university_id] = profile['universityId']
+    seed_hash[:california_physician_license] = profile['californiaPhysicianLicense']
+    seed_hash[:email] = profile['email']
+    seed_hash[:official_first_name]  = legal_name['firstName']
+    seed_hash[:official_middle_name] = legal_name['middleName']
+    seed_hash[:official_last_name]   = legal_name['lastName']
+    seed_hash[:cap_first_name]  = pref_name['firstName']
+    seed_hash[:cap_middle_name] = pref_name['middleName']
+    seed_hash[:cap_last_name]   = pref_name['lastName']
+    # TODO: duplicative values
+    seed_hash[:emails_for_harvest]    = seed_hash[:email]
+    seed_hash[:preferred_first_name]  = seed_hash[:cap_first_name]
     seed_hash[:preferred_middle_name] = seed_hash[:cap_middle_name]
-    seed_hash[:preferred_last_name] = seed_hash[:cap_last_name]
+    seed_hash[:preferred_last_name]   = seed_hash[:cap_last_name]
     seed_hash
   end
 
@@ -161,6 +160,7 @@ class Author < ActiveRecord::Base
     a
   end
 
+  # @return [Boolean]
   def harvestable?
     active_in_cap && cap_import_enabled
   end
