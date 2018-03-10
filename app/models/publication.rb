@@ -27,6 +27,7 @@ class Publication < ActiveRecord::Base
   end
 
   has_one :batch_uploaded_source_record
+  has_one :web_of_science_source_record, ->(pub) { where(uid: pub.wos_uid) }
 
   has_many :user_submitted_source_records
 
